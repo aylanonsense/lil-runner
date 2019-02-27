@@ -2,7 +2,7 @@
 A lil duck running for the fun of it.
 
 ## Getting started
-Download [Castle](castle://castle.games/@bridgs/lil-runner) to play!
+Download [Castle](https://castle.games/@bridgs/lil-runner) to play!
 
 ## Controls
 Press space bar to jump, and again in mid-air to double-jump... and _again_ in mid-air to triple jump.
