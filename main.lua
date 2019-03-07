@@ -25,8 +25,8 @@ local spikeHitSound
 function love.load()
   -- Load assets
   duckImage = love.graphics.newImage('img/duck.png')
-  duckImage:setFilter('nearest', 'nearest')
   spikesImage = love.graphics.newImage('img/spikes.png')
+  duckImage:setFilter('nearest', 'nearest')
   spikesImage:setFilter('nearest', 'nearest')
   jumpSounds = {
     love.audio.newSource('sfx/jump-1.wav', 'static'),
@@ -57,6 +57,7 @@ function love.load()
   for i = 0, 1 + GAME_WIDTH / PLATFORM_WIDTH do
     table.insert(platforms, {
       x = i * PLATFORM_WIDTH,
+      y = GAME_HEIGHT - 48,
       width = PLATFORM_WIDTH,
       height = 48,
       isHole = false
@@ -76,19 +77,20 @@ function love.update(dt)
   for _, platform in ipairs(platforms) do
     if platform.x + platform.width < 0 then
       platform.x = rightmostPlatform.x + rightmostPlatform.width
-      -- Randomize the platform's size
+      -- Randomize the platform's height
       local height = rightmostPlatform.height
       if math.random() < 0.8 then
-        height = math.min(math.max(16, height + (math.random() < 0.5 and -16 or 16)), 80)
+        height = math.min(math.max(24, height + (math.random() < 0.5 and -16 or 16)), 88)
       end
       platform.height = height
+      platform.y = GAME_HEIGHT - platform.height
       platform.isHole = not rightmostPlatform.isHole and math.random() < 0.2
       rightmostPlatform = platform
       -- Use this opportunity to spawn some spikes
       if not platform.isHole and math.random() < 0.22 then
         local numSpikes = math.random(3, 5)
         local x = rightmostPlatform.x + rightmostPlatform.width / 2 + 1
-        local y = GAME_HEIGHT - rightmostPlatform.height - 4
+        local y = rightmostPlatform.y - 4
         local arrangeVertically = math.random() < 0.5
         for i = 0, numSpikes - 1 do
           table.insert(spikes, {
@@ -133,11 +135,10 @@ function love.update(dt)
 
   -- Check for collisions with the ground
   for _, platform in ipairs(platforms) do
-    local platformY = GAME_HEIGHT - platform.height
-    if platform.x <= duck.x and duck.x < platform.x + platform.width and duck.y > platformY and not platform.isHole and duck.vy > 0 then
+    if platform.x <= duck.x and duck.x < platform.x + platform.width and duck.y > platform.y and not platform.isHole and duck.vy > 0 then
       -- Allow the duck to stand on the platform
-      if duck.isBeingBumped or duck.y < platformY + 5 then
-        duck.y = platformY
+      if duck.isBeingBumped or duck.y < platform.y + 5 then
+        duck.y = platform.y
         duck.isBeingBumped = false
         duck.vy = 0
         duck.isOnGround = true
@@ -161,16 +162,11 @@ function love.draw()
   love.graphics.scale(RENDER_SCALE, RENDER_SCALE)
   love.graphics.clear(15 / 255, 217 / 255, 246 / 255)
 
-  -- Draw the lines showing how far the duck has gotten
-  love.graphics.setColor(254 / 255, 253 / 255, 56 / 255)
-  love.graphics.line(duck.x, 0, duck.x, 5)
-  love.graphics.line(duck.maxX, 0, duck.maxX, 10)
-
   -- Draw the platforms
   love.graphics.setColor(37 / 255, 2 / 255, 72 / 255)
   for _, platform in ipairs(platforms) do
     if not platform.isHole then
-      love.graphics.rectangle('fill', platform.x, GAME_HEIGHT - platform.height, platform.width, platform.height)
+      love.graphics.rectangle('fill', platform.x, platform.y, platform.width, platform.height)
     end
   end
 
@@ -193,9 +189,13 @@ function love.draw()
   else
     sprite = 5
   end
-  love.graphics.setColor(1, 1, 1)
   if duck.invincibilityTimer % 0.2 < 0.15 then
+    love.graphics.setColor(254 / 255, 253 / 255, 56 / 255)
+    -- Draw the duck
     drawSprite(duckImage, 16, 16, sprite, duck.x - 8, duck.y - 16)
+    -- Draw the lines showing how far the duck has gotten
+    love.graphics.line(duck.x, 0, duck.x, 5)
+    love.graphics.line(duck.maxX, 0, duck.maxX, 10)
   end
 
   -- Draw the spikes
@@ -226,8 +226,8 @@ end
 
 -- Bumps the duck backwards (after it collides with an obstacle)
 function bumpDuck()
-  duck.y = duck.y - 5
-  duck.vy = -150
+  duck.y = math.max(duck.y - 5, GAME_HEIGHT - 25)
+  duck.vy = -220
   duck.isBeingBumped = true
   duck.invincibilityTimer = 3.50
 end
