@@ -132,7 +132,7 @@ function love.update(dt)
       table.remove(spikes, i)
     end
     -- Check for collisions with the duck
-    if entitieAreOverlapping(duck, spike) and duck.invincibilityTimer <= 0.00 then
+    if entitiesOverlapping(duck, spike) and duck.invincibilityTimer <= 0.00 then
       -- Spike cllisions bump the duck backwards
       bumpDuck()
       love.audio.play(spikeSound:clone())
@@ -141,7 +141,7 @@ function love.update(dt)
 
   -- Check for collisions with the ground
   for _, platform in ipairs(platforms) do
-    if entitieAreOverlapping(duck, platform) and not platform.isHole and duck.vy > 0 then
+    if entitiesOverlapping(duck, platform) and not platform.isHole and duck.vy > 0 then
       -- Allow the duck to stand on the platform
       if duck.isBeingBumped or duck.y + duck.height < platform.y + 5 or duck.invincibilityTimer > 0.00 then
         duck.y = platform.y - duck.height
@@ -249,6 +249,6 @@ function drawSprite(spriteSheetImage, spriteWidth, spriteHeight, sprite, x, y, f
 end
 
 -- Returns true if two entities are overlapping, by checking their bounding boxes
-function entitieAreOverlapping(a, b)
+function entitiesOverlapping(a, b)
   return a.x + a.width > b.x and b.x + b.width > a.x and a.y + a.height > b.y and b.y + b.height > a.y
 end
