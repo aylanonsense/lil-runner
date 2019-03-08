@@ -18,8 +18,8 @@ local rightmostPlatform
 local duckImage
 local spikesImage
 local jumpSounds
-local wallHitSound
-local spikeHitSound
+local bumpSound
+local spikeSound
 
 -- Initialize the game
 function love.load()
@@ -33,13 +33,15 @@ function love.load()
     love.audio.newSource('sfx/jump-2.wav', 'static'),
     love.audio.newSource('sfx/jump-3.wav', 'static')
   }
-  wallHitSound = love.audio.newSource('sfx/wall-hit.wav', 'static')
-  spikeHitSound = love.audio.newSource('sfx/spike-hit.wav', 'static')
+  bumpSound = love.audio.newSource('sfx/bump.wav', 'static')
+  spikeSound = love.audio.newSource('sfx/spike.wav', 'static')
 
   -- Create the duck, our hero!
   duck = {
     x = DUCK_START_X,
     y = 80,
+    width = 9,
+    height = 9,
     vx = 3,
     vy = 0,
     maxX = DUCK_START_X,
@@ -68,7 +70,7 @@ end
 
 -- Update the game state
 function love.update(dt)
-  -- Move the platforms to the left
+  -- Move platforms to the left
   for _, platform in ipairs(platforms) do
     platform.x = platform.x - SCROLL_SPEED * dt
   end
@@ -89,13 +91,15 @@ function love.update(dt)
       -- Use this opportunity to spawn some spikes
       if not platform.isHole and math.random() < 0.22 then
         local numSpikes = math.random(3, 5)
-        local x = rightmostPlatform.x + rightmostPlatform.width / 2 + 1
-        local y = rightmostPlatform.y - 4
+        local x = rightmostPlatform.x + rightmostPlatform.width / 2 - 2.5
+        local y = rightmostPlatform.y - 11
         local arrangeVertically = math.random() < 0.5
         for i = 0, numSpikes - 1 do
           table.insert(spikes, {
             x = x + (arrangeVertically and 0 or 8 * (i + 0.5 - numSpikes / 2)),
-            y = y - (arrangeVertically and 8 * i or 0)
+            y = y - (arrangeVertically and 8 * i or 0),
+            width = 7,
+            height = 7
           })
         end
       end
@@ -112,33 +116,35 @@ function love.update(dt)
   duck.vy = duck.vy + (duck.isBeingBumped and 200 or 400) * dt
   duck.x = math.max(DUCK_START_X, duck.x + (duck.isBeingBumped and -25 or duck.vx) * dt)
   duck.y = duck.y + math.min(duck.vy * dt, 4.5)
+  if duck.y > GAME_HEIGHT then
+    bumpDuck()
+    love.audio.play(bumpSound:clone())
+  end
 
   -- Keep track of how far the duck has gotten
   duck.maxX = math.max(duck.x, duck.maxX)
 
   -- Move spikes to the left
   for i = #spikes, 1, -1 do
-    local object = spikes[i]
-    object.x = object.x - SCROLL_SPEED * dt
-    if object.x < -10 then
+    local spike = spikes[i]
+    spike.x = spike.x - SCROLL_SPEED * dt
+    if spike.x < -10 then
       table.remove(spikes, i)
     end
     -- Check for collisions with the duck
-    local dx, dy = object.x - duck.x, object.y - duck.y
-    local dist = math.sqrt(dx * dx + dy * dy)
-    if dist < 7 and duck.invincibilityTimer <= 0.00 then
-      -- Collisions bump the duck backwards
+    if entitieAreOverlapping(duck, spike) and duck.invincibilityTimer <= 0.00 then
+      -- Spike cllisions bump the duck backwards
       bumpDuck()
-      love.audio.play(spikeHitSound:clone())
+      love.audio.play(spikeSound:clone())
     end
   end
 
   -- Check for collisions with the ground
   for _, platform in ipairs(platforms) do
-    if platform.x <= duck.x and duck.x < platform.x + platform.width and duck.y > platform.y and not platform.isHole and duck.vy > 0 then
+    if entitieAreOverlapping(duck, platform) and not platform.isHole and duck.vy > 0 then
       -- Allow the duck to stand on the platform
-      if duck.isBeingBumped or duck.y < platform.y + 5 then
-        duck.y = platform.y
+      if duck.isBeingBumped or duck.y + duck.height < platform.y + 5 or duck.invincibilityTimer > 0.00 then
+        duck.y = platform.y - duck.height
         duck.isBeingBumped = false
         duck.vy = 0
         duck.isOnGround = true
@@ -149,7 +155,7 @@ function love.update(dt)
       -- But if the duck is too far below the platform, bump it backward
       else
         bumpDuck()
-        love.audio.play(wallHitSound:clone())
+        love.audio.play(bumpSound:clone())
       end
     end
   end
@@ -162,12 +168,15 @@ function love.draw()
   love.graphics.scale(RENDER_SCALE, RENDER_SCALE)
   love.graphics.clear(15 / 255, 217 / 255, 246 / 255)
 
-  -- Draw the platforms
+  -- Draw the platforms and spikes
   love.graphics.setColor(37 / 255, 2 / 255, 72 / 255)
   for _, platform in ipairs(platforms) do
     if not platform.isHole then
       love.graphics.rectangle('fill', platform.x, platform.y, platform.width, platform.height)
     end
+  end
+  for _, spike in ipairs(spikes) do
+    drawSprite(spikesImage, 7, 7, 1, spike.x, spike.y)
   end
 
   -- Draw the duck
@@ -192,16 +201,10 @@ function love.draw()
   if duck.invincibilityTimer % 0.2 < 0.15 then
     love.graphics.setColor(254 / 255, 253 / 255, 56 / 255)
     -- Draw the duck
-    drawSprite(duckImage, 16, 16, sprite, duck.x - 8, duck.y - 16)
+    drawSprite(duckImage, 16, 16, sprite, duck.x - 4, duck.y - 7)
     -- Draw the lines showing how far the duck has gotten
-    love.graphics.line(duck.x, 0, duck.x, 5)
-    love.graphics.line(duck.maxX, 0, duck.maxX, 10)
-  end
-
-  -- Draw the spikes
-  love.graphics.setColor(1, 1, 1)
-  for _, object in ipairs(spikes) do
-    drawSprite(spikesImage, 7, 7, 1, object.x - 3.5, object.y - 7)
+    love.graphics.rectangle('fill', duck.x, 0, 1, 5)
+    love.graphics.rectangle('fill', duck.maxX, 0, 2, 10)
   end
 end
 
@@ -226,7 +229,7 @@ end
 
 -- Bumps the duck backwards (after it collides with an obstacle)
 function bumpDuck()
-  duck.y = math.max(duck.y - 5, GAME_HEIGHT - 25)
+  duck.y = math.min(duck.y - 5, GAME_HEIGHT - 25)
   duck.vy = -220
   duck.isBeingBumped = true
   duck.invincibilityTimer = 3.50
@@ -243,4 +246,9 @@ function drawSprite(spriteSheetImage, spriteWidth, spriteHeight, sprite, x, y, f
     rotation or 0,
     flipHorizontal and -1 or 1, flipVertical and -1 or 1,
     spriteWidth / 2, spriteHeight / 2)
+end
+
+-- Returns true if two entities are overlapping, by checking their bounding boxes
+function entitieAreOverlapping(a, b)
+  return a.x + a.width > b.x and b.x + b.width > a.x and a.y + a.height > b.y and b.y + b.height > a.y
 end
