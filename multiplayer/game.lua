@@ -39,14 +39,28 @@ local ENTITY_TYPES = {
 -- Define some constants that configure the way Moat works
 local MOAT_CONFIG = {
   TickInterval = 1.0 / 60.0,
-  WorldSize = math.max(GAME_WIDTH, GAME_HEIGHT),
-  ClientVisibility = math.max(GAME_WIDTH, GAME_HEIGHT)
+  WorldSize = 192,
+  ClientVisibility = 192
 }
 
 -- Create a new game using Moat, which allows for networked online play
 local moat = Moat:new(ENTITY_TYPES, MOAT_CONFIG)
 
 -- Initialize the game
+function moat:clientLoad()
+  -- Load assets
+  duckImage = love.graphics.newImage('../img/duck.png')
+  spikesImage = love.graphics.newImage('../img/spikes.png')
+  duckImage:setFilter('nearest', 'nearest')
+  spikesImage:setFilter('nearest', 'nearest')
+  jumpSounds = {
+    love.audio.newSource('../sfx/jump-1.wav', 'static'),
+    love.audio.newSource('../sfx/jump-2.wav', 'static'),
+    love.audio.newSource('../sfx/jump-3.wav', 'static')
+  }
+  bumpSound = love.audio.newSource('../sfx/bump.wav', 'static')
+  spikeShound = love.audio.newSource('../sfx/spike.wav', 'static')
+end
 function moat:serverInitWorld(state)
   for i = 0, 1 + GAME_WIDTH / PLATFORM_WIDTH do
     rightmostPlatform = moat:spawn(ENTITY_TYPES.Platform, i * PLATFORM_WIDTH, GAME_HEIGHT - 48, PLATFORM_WIDTH, 48, {
@@ -65,31 +79,17 @@ function moat:serverOnClientConnected(clientId)
     invincibilityTimer = 0.00
   })
 end
-function moat:clientLoad()
-  -- Load assets
-  duckImage = love.graphics.newImage('../img/duck.png')
-  spikesImage = love.graphics.newImage('../img/spikes.png')
-  duckImage:setFilter('nearest', 'nearest')
-  spikesImage:setFilter('nearest', 'nearest')
-  jumpSounds = {
-    love.audio.newSource('../sfx/jump-1.wav', 'static'),
-    love.audio.newSource('../sfx/jump-2.wav', 'static'),
-    love.audio.newSource('../sfx/jump-3.wav', 'static')
-  }
-  bumpSound = love.audio.newSource('../sfx/bump.wav', 'static')
-  spikeShound = love.audio.newSource('../sfx/spike.wav', 'static')
-end
 
 -- Update the game state
 function moat:worldUpdate(dt)
   -- Move platforms to the left
-  self:eachEntityOfType(ENTITY_TYPES.Platform, function(platform)
+  moat:eachEntityOfType(ENTITY_TYPES.Platform, function(platform)
     platform.x = platform.x - SCROLL_SPEED * dt
     moat:moveEntity(platform)
   end)
 
   -- Move spikes to the left
-  self:eachEntityOfType(ENTITY_TYPES.Spike, function(spike)
+  moat:eachEntityOfType(ENTITY_TYPES.Spike, function(spike)
     spike.x = spike.x - SCROLL_SPEED * dt
     moat:moveEntity(spike)
     if spike.x < -10 then
@@ -99,7 +99,7 @@ function moat:worldUpdate(dt)
 end
 function moat:serverUpdate(dt)
   -- Platforms that move off the left side of the screen become new platforms on the right side of the screen
-  self:eachEntityOfType(ENTITY_TYPES.Platform, function(platform)
+  moat:eachEntityOfType(ENTITY_TYPES.Platform, function(platform)
     if platform.x + platform.w < 0 then
       platform.x = rightmostPlatform.x + rightmostPlatform.w
       -- Randomize the platform's height
@@ -125,14 +125,14 @@ function moat:serverUpdate(dt)
     moat:moveEntity(platform)
   end)
 end
--- Press space to make the duck jump (or double jump [or triple jump])
 function moat:clientKeyPressed(key)
+  -- Press space to make the duck jump (or double jump [or triple jump])
   if key == 'space' then
-    self:clientSetInput({ jump = true })
+    moat:clientSetInput({ jump = true })
   end
 end
 function moat:clientUpdate(dt)
-  self:clientSetInput({ jump = false })
+  moat:clientSetInput({ jump = false })
 end
 function moat:playerUpdate(duck, input, dt)
   -- Update the duck's timers
@@ -171,7 +171,7 @@ function moat:playerUpdate(duck, input, dt)
   duck.maxX = math.max(duck.x, duck.maxX)
 
   -- Check for collisions with the ground and with spikes
-  self:eachOverlapping(duck, function(entity)
+  moat:eachOverlapping(duck, function(entity)
     if entity.type == ENTITY_TYPES.Platform and not entity.isHole and duck.vy > 0 then
       -- Allow the duck to stand on the platform
       if duck.isBeingBumped or duck.y + duck.h < entity.y + 5 or duck.invincibilityTimer > 0.00 then
@@ -207,17 +207,17 @@ function moat:clientDraw()
 
   -- Draw the platforms and spikes
   love.graphics.setColor(91 / 255, 20 / 255, 3 / 255)
-  self:eachEntityOfType(ENTITY_TYPES.Platform, function(platform)
+  moat:eachEntityOfType(ENTITY_TYPES.Platform, function(platform)
     if not platform.isHole then
       love.graphics.rectangle('fill', platform.x, platform.y, platform.w, platform.h)
     end
   end)
-  self:eachEntityOfType(ENTITY_TYPES.Spike, function(spike)
+  moat:eachEntityOfType(ENTITY_TYPES.Spike, function(spike)
     drawSprite(spikesImage, 7, 7, 1, spike.x, spike.y)
   end)
 
   -- Draw the ducks
-  self:eachEntityOfType(ENTITY_TYPES.Player, function(duck)
+  moat:eachEntityOfType(ENTITY_TYPES.Player, function(duck)
     local sprite
     if duck.isBeingBumped then
       sprite = 7
