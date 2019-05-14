@@ -1,9 +1,6 @@
--- Render constants
+-- Game constants
 local GAME_WIDTH = 192
 local GAME_HEIGHT = 192
-local RENDER_SCALE = 3
-
--- Game constants
 local PLATFORM_WIDTH = 60
 local SCROLL_SPEED = 80
 local DUCK_START_X = 15
@@ -24,10 +21,9 @@ local spikeSound
 -- Initialize the game
 function love.load()
   -- Load assets
+  love.graphics.setDefaultFilter('nearest', 'nearest')
   duckImage = love.graphics.newImage('img/duck.png')
   spikesImage = love.graphics.newImage('img/spikes.png')
-  duckImage:setFilter('nearest', 'nearest')
-  spikesImage:setFilter('nearest', 'nearest')
   jumpSounds = {
     love.audio.newSource('sfx/jump-1.wav', 'static'),
     love.audio.newSource('sfx/jump-2.wav', 'static'),
@@ -132,7 +128,7 @@ function love.update(dt)
       table.remove(spikes, i)
     end
     -- Check for collisions with the duck
-    if entitiesOverlapping(duck, spike) and duck.invincibilityTimer <= 0.00 then
+    if isOverlapping(duck, spike) and duck.invincibilityTimer <= 0.00 then
       -- Spike cllisions bump the duck backwards
       bumpDuck()
       love.audio.play(spikeSound:clone())
@@ -141,7 +137,7 @@ function love.update(dt)
 
   -- Check for collisions with the ground
   for _, platform in ipairs(platforms) do
-    if entitiesOverlapping(duck, platform) and not platform.isHole and duck.vy > 0 then
+    if isOverlapping(duck, platform) and not platform.isHole and duck.vy > 0 then
       -- Allow the duck to stand on the platform
       if duck.isBeingBumped or duck.y + duck.height < platform.y + 5 or duck.invincibilityTimer > 0.00 then
         duck.y = platform.y - duck.height
@@ -163,9 +159,7 @@ end
 
 -- Render the game
 function love.draw()
-  -- Scale and crop the screen
-  love.graphics.setScissor(0, 0, RENDER_SCALE * GAME_WIDTH, RENDER_SCALE * GAME_HEIGHT)
-  love.graphics.scale(RENDER_SCALE, RENDER_SCALE)
+  -- Clear the screen
   love.graphics.clear(15 / 255, 217 / 255, 246 / 255)
 
   -- Draw the platforms and spikes
@@ -249,6 +243,6 @@ function drawSprite(spriteSheetImage, spriteWidth, spriteHeight, sprite, x, y, f
 end
 
 -- Returns true if two entities are overlapping, by checking their bounding boxes
-function entitiesOverlapping(a, b)
+function isOverlapping(a, b)
   return a.x + a.width > b.x and b.x + b.width > a.x and a.y + a.height > b.y and b.y + b.height > a.y
 end
