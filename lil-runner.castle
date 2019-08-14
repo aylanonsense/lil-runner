@@ -4,6 +4,6 @@ name: lil runner
 username: bridgs
 primaryColor: 0FD9F6
 coverImage: cover-image.png
-description: A procedurally-generated infinite runner where you avoid obstacles. Try making your own infinite runner!
+description: A procedurally-generated infinite runner where you avoid obstacles. Try making your own infinite runner! #awesome
 dimensions: 192x192
 scaling: step
